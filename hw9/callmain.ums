@@ -1,0 +1,14 @@
+// COMP 40 HW 9
+// Spring 2015
+// Sam Vaughan and Feiyu Lu
+// UM RPN Calclulator
+// callmain Module
+
+.zero r0
+.temps r6, r7
+// Must be implemented last in the compile, calls main as the last part
+// of initialization
+.section init
+start:
+        goto main linking r1
+        halt

@@ -1,0 +1,17 @@
+// COMP 40 HW 9
+// Spring 2015
+// Sam Vaughan and Feiyu Lu
+// RPN Stack
+
+// Ensure 0 is in register 0
+r0 := 0
+.zero r0
+
+.section stk
+// Allocate 100000 words for the stack to grow in.
+.space 100000
+endstack:
+.section init
+// Store the stack pointer in r2, r2 is reserved as stack pointer.
+r2 := endstack
+

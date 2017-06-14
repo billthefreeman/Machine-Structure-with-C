@@ -1,0 +1,308 @@
+=============================
+HW3 Locality DESIGN DOC
+Feiyu Lu & Jeanne-Marie Musca
+=============================
+
+PART A
+=======
+/*---------------------------------------------------------------*
+ |
+ |                   UArray2b Design Checklist
+ |
+ *---------------------------------------------------------------*/
+
+1. 	What is the abstract thing you are trying to represent? Often the answer
+	will be in terms of sets, sequences, and finite maps.
+----------------------------------------------------------------------------
+	We are trying to represent a two dimensional array, in which the cells 
+	containing data are stored in square blocks of a given size. We will 
+	call it UArray2b.
+
+----------------------------------------------------------------------------
+2. 	What functions will you offer, and what are the contracts of that those 
+	functions must meet?
+----------------------------------------------------------------------------
+	/* Return a new blocked 2d array: 
+	 * 	blocksize = square root of # of cells in block
+	 * An array with given width, height, and blocksize will be created,
+	 *     	in which object types with the given size can be stored.
+	 *	Elements in the same block will be stored contiguously in 
+	 *	memory.
+	 * If blocksize is 0 or not specified: make blocksize as large 
+	 * 	as possible but less than 64kB
+	 * It is a c.r.e to create an array with 0 width, height & size.
+	 */
+	UArray2b_T UArray2b_new (int width, int height, int size, int blocksize);
+	UArray2b_T UArray2b_new_64K_block(int width, int height, int size);
+
+	/* Free heap memory used by array2b
+	 * It is a c.r.e. to pass a NULL pointer or pointer to NULL array 
+	 */
+	void UArray2b_free (UArray2b_T *array2b);
+	
+	/* Return properties of given array
+	 * It is a c.r.e. to pass a NULL array 
+	 */	
+	int UArray2b_width (UArray2b_T array2b);
+	int UArray2b_height(UArray2b_T array2b);
+	int UArray2b_size (UArray2b_T array2b);
+	int UArray2b_blocksize(UArray2b_T array2b);
+
+	/* Return a pointer to the cell in column i, row j in a given array,
+	 * It is a c.r.e to pass a NULL array or an out of range index
+	 */
+	void *UArray2b_at(T array2b, int i, int j);
+	
+	/* Visit every cell in one block before moving to another block 
+	 * 	Will not visit extra cells that have been created in order to
+	 *	have complete blocks in the UArray2b
+	 *	
+	 * It is a c.r.e. to pass a NULL array 
+	 */
+	void UArray2b_map(UArray2b_T array2b,
+			  void apply(int i, int j, UArray2b_T array2b, 
+			  	     void *elem, void *cl), 
+			  void *cl);
+
+----------------------------------------------------------------------------
+3. 	What examples do you have of what the functions are supposed to do?
+----------------------------------------------------------------------------
+	int i = size_of(int);
+
+	UArray2b_T arrayb = UArray2b_new(5, 5, i, 2);
+           - creates a UArray2b_T with 5 rows, 5 columns, which has enough 
+             memory to store an int, and stores cells in 2x2 blocks. 
+             (note: although extra cells are not accessible to the client, 
+                    the array will actually be 6x6 in this case)
+
+	UArray2b_map(arrayb, fillUArray, NULL);
+    		- in this example, fillUArray will multiply the row and column 
+    		  value and store the product in that index:
+        
+        fillUArray(int col, int row, UArray2b_T uArray2b, 
+        	       void *el_ptr, void *cl)
+        {
+            (int*)el_ptr = (int) col * row;
+        }
+        
+    - this resulting matrix should look like:   {{0, 0, 0, 0, 0},
+                                                 {0, 1, 2, 3, 4},
+                                                 {0, 2, 4, 6, 8},
+                                                 {0, 3, 6, 9, 12},
+                                                 {0, 4, 8, 12, 16}}
+
+
+	int p = *UArray2b_at(arrayb, 2, 1);
+   		 - the declared int p gets 2
+
+	int temp = UArray2b_width(arrayb);
+    	- should return 5
+    
+	temp = UArray2b_height(arrayb);
+    	- should return 5
+
+   	temp = UArray2b_size(arrayb);
+        	- returns sizeof(int), which varies between machines
+    	
+    	temp = UArray2b_blocksize(arrayb);
+        	- returns 2.
+   	
+   	UArray2b_free(&arrayb);
+        	- frees the memory allocated in the heap by the objects in 
+        	  UArrayb
+
+----------------------------------------------------------------------------
+4. 	What representation will you use, and what invariants will it satisfy?
+	(This question is especially important to answer precisely.)
+----------------------------------------------------------------------------
+    -The UArray2b will be stored in a UArray2.
+      - Each cell in UArray2 represents a block in UArray2b
+
+    The element at index (col, row) in UArray2b, will be found in the block 
+    at index (col/blocksize, row/blocksize) in the Uarray2.
+
+    Each Uarray2 element will contain a UArray.
+
+    -Each block will be a UArray
+    	- Each cell in the UArray represents an element in the block, they are 
+    	stored in the following order.
+
+	The element at index (col, row) in UArray2b, will be found in the block at 
+	index (blocksize * (col % blocksize) + row % blocksize) in the UArray 
+	(assuming we are looking in the block that contains the element)
+
+----------------------------------------------------------------------------
+5.	When a representation satisfies all invariants, what abstract thing from  
+	step 1 does it represent? That is, what is the inverse mapping from any 
+	particular representation to the abstraction that it represents. This 
+	question is also especially important to answer precisely.)
+----------------------------------------------------------------------------
+    - When all UArray invariants are met, the UArray will store the elements in
+      a block of UArray2b
+        - In block k, with size s, the kth UArray[i] stores the value of 
+          UArray2b[row][col] according to thformula:  i = col * s + row.
+
+    - When all the UArray2 invariants are met, it represents an 2d array of 
+      blocks
+
+----------------------------------------------------------------------------
+6.	What test cases have you devised?
+----------------------------------------------------------------------------
+	- Creating an UArray2b, and Looking at the address of elements in the same 
+	  block to confirm that they are in neighbouring parts of memory.
+  
+	- trying to access the "wasted space" in the UArray2b to make sure that it 
+	  is inaccessible to the client
+
+    	- trying to place an object at an index that's out of bounds
+
+    	- storing an object type larger than the permitted size
+
+    	- corner cases: storing to and accessing the 2d array edges & corners
+
+	- creating 0x0 array & getting its properties
+
+    	- test storing & retrieving data from arrays using various sized 
+    		elements (int, long, char, structs, etc.)
+
+    	- implementing an apply() function that modifies array elements
+
+----------------------------------------------------------------------------
+7.	What programming idioms will you need?
+----------------------------------------------------------------------------
+   the idioms for:
+    	- using interfaces (i.e. Hanson's UArray)
+    	- void pointers and incomplete structs 
+        	(hiding implementation from client)
+    	- handling 2d arrays (nested for loops, etc.)
+    	- using unboxed arrays
+
+----------------------------------------------------------------------------
+PART C
+=======
+/*---------------------------------------------------------------*
+ |
+ |                   ppmtrans Design Checklist
+ |
+ *---------------------------------------------------------------*/
+
+1. 	What problem are you trying to solve?
+--------------------------------------
+	Transforming an a ppm image: Rotate, flip transpose
+
+2.	What example inputs will help illuminate the problem?
+--------------------------------------
+	- Any non-symmetric ppm image.
+
+3.	What example outputs go with those example inputs?
+--------------------------------------
+	- the transformed image in standard output
+
+4.	Into what steps or subproblems can you break down the problem?
+--------------------------------------
+	1. read in the image
+	2. store it in an array
+	3. map the location of each pixel to its rotated location
+	4. output
+
+5.	What data are in each subproblem?
+--------------------------------------
+	1. image file (data accessed via pnmrdr)
+	2. ints in a 2d array
+	3. location of each pixel 
+	4. transformed image file
+
+6.	What code or algorithms go with that data?
+--------------------------------------
+	1. read from std input, pnmread code
+
+	2. get dimensions of the image, create 2d array via A2Methods, and get 
+	   each pixel from pnmreader, iterate row-wise through 2d array as we 
+	   are	getting data from pnmreader 
+
+	3. calculate the transformed location. 
+	   pixel (i,j) becomes:
+		- 90 degree rotation:  pixel (height-j-1,i)
+			-note: change array dimensions (flip width and height)
+
+		- 180 degree rotation:  pixel (width-i-1, height-j-1)
+
+		- 270 degree rotation:  pixel (width-height+j, height-i-1)
+				-note: change array dimensions (flip width and height)
+
+		- flip horizontal: pixel (width-i-1,j)
+
+		- flip vertical: pixel (i,height-j-1)
+
+		- transpose: pixel (j,i)
+			-note: change array dimensions (flip width and height)
+
+	4. iterate through array and output
+
+
+7.	What abstractions will you use to help solve the problem?
+--------------------------------------
+	- We will be using A2Methods	
+
+8.	If you have to create new abstractions, what are their design checklists?
+--------------------------------------
+	For the Uarray2b design checklist, see above.
+
+9.	What invariant properties should hold during the solution of the problem?
+--------------------------------------
+	The pixel value in image at location (col, row) will be stored as an int 
+	in a 2d array at array[col][row].
+
+	While an image is being transformed, and we are iterating through 2d array.
+		- elements prior to current int: will be in the correct location
+		- elements after current int: will not yet have corrent location.
+
+	Other than location, and image dimensions, nothing should be changed
+
+10.	What algorithms might help solve the problem?
+--------------------------------------
+	as described in question 6
+
+11. What are the major components of your program, and what are their
+	interfaces?
+
+	Components include functions as well as abstract data
+	types. An interface includes contracts as well as func-
+	tion prototypes.
+--------------------------------------
+	This program will only let the client supply an image and a command for 
+	the transformation they would like.
+	
+	The component of the program that: 
+		- reads in the image will be using the pnmrdr interface
+		- stores the image will be using the A2Methods interface.
+	
+12. How do the components in your program interact? That is, what is the
+	architecture of your program?
+--------------------------------------
+	The file reader provides file data to pnm reader.
+	The pnm reader processes the input image, and outputs the data in the 
+	form of ints to a 2d UArray. 
+	In the transformation calculation component, each int in the original 
+	UArray has a [col][row] location in the array. a new [col][row] location 
+	is caluculated and the int is stored at that location in a new UArray.
+	The output part will just output the array with changed locations
+
+13. What test cases will you use to convince yourself that your program works?
+--------------------------------------
+	- firstly with small images, with black pixels so
+	that we can track and calculate their location precisely.
+	- then with a large unsymmetric pnm image, testing visually that they 
+	transform correctly. 
+	- to test that the checked run-time errors are working properly, test 
+	with image that has not enough pixels relative to header and with files 
+	that don't exist.
+
+
+14. What arguments will you use to convince a skeptical audience that your 
+	program works?
+--------------------------------------
+	- all the tests in question 13 work
+	- we can explain the logic of our program 
+		- using a coordinate system that maps pixels to different 
+		locations based on the transformation.

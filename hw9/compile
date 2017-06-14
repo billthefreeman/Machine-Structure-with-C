@@ -1,0 +1,9 @@
+#!/bin/sh
+. /usr/sup/use/use.sh
+
+# Sam Vaughan and Feiyu Lu
+# Compile Script
+# 
+#
+
+umasm calc40.ums printd.ums stack.ums callmain.ums > calc40.um

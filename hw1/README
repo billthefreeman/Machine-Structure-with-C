@@ -1,0 +1,44 @@
+COMP-40 HW #1: ReadMe
+By: Ben Tanen, Feiyu Lu
+
+Included in this submission is both the fgroups assignment and brightness 
+assignment.
+
+brightness.c uses the Pnmrdr interface to read the contents of a .pnm image and 
+calculate the average brightness of the file. Files can be identified either 
+by passing the name from the command-line or by passing the binary of the file
+using tools like funneling and piping. Brightness.c is also set up to check if
+the file that is passed is of the correct format (.pnm), of the graymap format,
+and even exists in the directory. All of these features were specified in the
+assignment and have been correctly implemented.
+
+fgroups.c is a program that reads in input that describes fingerprint groups.
+Based on the specifications from the assignment, no name can be used more than
+once and fingerprint groups with less than 2 members should be ignored. On top
+of these issues, fgroups.c correctly parses through input of a given standard
+and if the input does not meet this standard, it reports the appropriate errors.
+Fingerprints are only allowed to be 512 characters or less, where as names are
+technically allowed to be any length. However, in our implementation, names can
+only be 512 characters long. If they are any longer, they are truncated to 512
+characters and treated appropriately.
+
+In addition to the example input that we've used for this assignment, fgroup
+can be used in a few ways. First, a correct implementation of the fgroups code
+could be used to manage a file system / directory. In order to be conservative,
+using fgroups can make sure that a user does not attempt to add files multiple
+times and take up unnecessary space. Once all files have been added, users can
+then view the full index of all files in their various "fgroups" or
+directories. Another use for fgroups could be for managing and storing all of
+the international phone numbers. Each phone number cannot be used more than
+once (that would cause chaos) and for the purposes of organization, a phone
+directory might want to keep all of the phone numbers organized by area/country
+code. In this way, the country/area code could be the "fgroup" and each phone
+number is the name. By storing all of these numbers and managing them through
+fgroups, we could be sure that no number is used more than once and that they
+are organized appropriately. In general, fgroups can be used to organize any
+set of information/objects that needs to be grouped under a key, and need to
+avoid duplicates.
+
+As of writing this, all features have been correctly implemented. To complete
+this assignment, we spent approximately 20 hours. All code included was 
+written by Ben Tanen & Feiyu Lu.

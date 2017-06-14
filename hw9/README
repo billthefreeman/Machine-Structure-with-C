@@ -1,0 +1,26 @@
+README
+COMP40 HW 9
+April 2015
+
+Samuel Vaughan and Feiyu Lu
+
+We would like to thank the course staff and TAs for help debugging our code and 
+for generally helping us to understand the project. We would also like to thank
+our previous partners on the UM for help in understanding UM programming in
+general.
+
+We feel that the entire program has been properly implemented.
+
+We departed from the calling conventions in sub-functions within the print
+module, because these are self contained within the module, so use of registers
+to pass data around and not actively saving callee saved registers is okay. 
+
+Print uses a recursive function for printing positive numbers that stores the
+least significant digit and then calls print on the most significant digits,
+and it makes negative numbers positive and treats 0 and 0x80000000 as special
+cases.
+
+
+We spent about 4 hours analyizing the assignment
+We spent about 3 hours writing assembly code
+We spent about 5 hours debugging assembly code

@@ -1,0 +1,418 @@
+// COMP 40 HW 9
+// Spring 2015
+// Sam Vaughan and Feiyu Lu
+// UM RPN Calclulator
+// Calc Module
+
+
+// Initialization code 
+.section init
+r0 := 0
+.zero r0
+.temps r6, r7
+
+
+// Initialize the jump table to input error
+// Initialization area allows use of r3 through r7
+.section rodata
+jumptable:
+        .space 256
+.section init
+        r4 := 256
+        r3 := 0
+        start_loop:
+        r5 := jumptable + r3
+        m[r0][r5] := input_error
+        r3 := r3 + 1
+        if (r3 <s r4) goto start_loop using r5
+
+.section text
+// Main function does not do any work on the stack because all input on stdin
+main:
+
+// Initialize space input
+.section init
+        m[r0][jumptable + ' '] := waiting
+.section text
+waiting:
+        //output "Waiting\n\n"
+        r1 := input()
+waiting_with_character:
+//      Test to see if r1 signals end of file,
+//      and if so, go to end of procedure ...
+        if (r1 == 0xFFFFFFFF) goto end_procedure using r5
+// branch indirect through jump table
+        r5 := jumptable + r1
+        r5 := m[r0][r5]
+        goto r5
+
+entering:
+        r1 := input()
+//      Test to see if r1 signals end of file,
+//      and if so, go to end of procedure ...
+entering_with_char:
+        if (r1 == 0xFFFFFFFF) goto end_procedure using r5
+        if (r1 <s '0') goto entering_jumptable using r5
+        if (r1 >s '9') goto entering_jumptable using r5
+        goto entering_digit
+// branch indirect through jump table        
+        entering_jumptable:
+        r5 := jumptable + r1
+        r5 := m[r0][r5]
+        goto r5
+        
+        
+// Procedure has been terminated by the user
+end_procedure:
+        halt
+
+
+input_error:
+        output "Unknown character '"
+        output r1
+        output "'\n"
+        goto waiting
+
+
+// Initialize the jump table values for digits
+.section init
+m[r0][jumptable + '0'] := digit
+m[r0][jumptable + '1'] := digit
+m[r0][jumptable + '2'] := digit
+m[r0][jumptable + '3'] := digit
+m[r0][jumptable + '4'] := digit
+m[r0][jumptable + '5'] := digit
+m[r0][jumptable + '6'] := digit
+m[r0][jumptable + '7'] := digit
+m[r0][jumptable + '8'] := digit
+m[r0][jumptable + '9'] := digit
+.section text
+// When we see a digit the most recent input digit is in r1
+// Transform the digit from ascii to binary, and then push the digit onto
+// the stack and then go to entering state.
+digit:
+        r1 := r1 - 48 // Convert from ascii to number
+        push r1 on stack r2
+        goto entering
+
+// r1 contains the least significant digit, must multiply current stack value by
+// 10, add r1, and then push the result
+entering_digit:
+        r1 := r1 - 48 // Convert digit from ascii to number
+        pop r5 off stack r2
+        r5 := r5 * 10
+        r1 := r5 + r1
+        push r1 on stack r2
+        goto entering
+
+// Newline causes the contents of the stack to be printed
+.section init 
+m[r0][jumptable + '\n'] := newline
+.section text
+newline:
+        r3 := r2 // set r3 equal to the end of the stack
+        start_print:
+        if (r3 == endstack) goto waiting using r5
+        goto print_num linking r1
+        r3 := r3 + 1 // iterate through the stack, r3 is saved by callee
+        goto start_print
+
+///////////// multiply
+// Pops the top two elements of the stack off of the stack, multiplies them, and
+// pushes the result.
+// First checks number of arguments to confirm at least 2 operands on the stack
+.section init
+m[r0][jumptable + '*'] := mul
+.section text
+mul:
+        goto confirm_2_operands linking r1
+        .temps r6
+        pop r5 off stack r2 // Argument 1
+        pop r7 off stack r2 // Argument 2
+        r5 := r5 * r7
+        push r5 on stack r2
+        .temps r6, r7
+        goto waiting
+
+
+///////////// add
+// Pops the top two elements of the stack off of the stack, adds them, and
+// pushes the result.
+// First checks number of arguments to confirm at least 2 operands on the stack
+// Leaves r3, r4 unchanged
+.section init
+m[r0][jumptable + '+'] := add
+.section text
+add:
+        goto confirm_2_operands linking r1
+        .temps r6
+        pop r5 off stack r2 // Argument 1
+        pop r7 off stack r2 // Argument 2
+        r5 := r5 + r7
+        push r5 on stack r2
+        .temps r6, r7
+        goto waiting
+
+
+///////////// sub
+// Pops the top two elements of the stack off of the stack, subtracts the first
+// from the second and pushes the result
+// First checks number of arguments to confirm at least 2 operands on the stack
+// Leaves r3, r4 unchanged
+.section init
+m[r0][jumptable + '-'] := sub
+.section text
+sub:
+        goto confirm_2_operands linking r1
+        .temps r6
+        pop r5 off stack r2 // Argument 1
+        pop r7 off stack r2 // Argument 2
+        r5 := r7 - r5
+        push r5 on stack r2
+        .temps r6, r7
+        goto waiting
+
+
+///////////// div
+// Pops the top two elements of the stack off of the stack, divides the first
+// by the second and pushes the result
+// First checks number of arguments to confirm at least 2 operands on the stack
+// Leaves r3, r4 unchanged
+.section init
+m[r0][jumptable + '/'] := div
+.section text
+div:
+        goto confirm_2_operands linking r1
+        pop r5 off stack r2 // Denominator (y)
+        pop r7 off stack r2 // numerator
+        push r3 on stack r2
+        push r4 on stack r2
+        .temps r3, r4, r6
+        if (r5 == 0) goto div_zero_error
+        if (r5 <s 0) goto num_sub_zero
+        num_over_zero:
+                if (r7 <s 0) goto denom_sub_zero_pos
+                denom_over_zero_pos: // Both num and denom > 0
+                        push r7 on stack r2 // save for function call
+                        push r5 on stack r2
+                        r1 := end_div // Set return address to end of function
+                        goto div_same_sign
+                denom_sub_zero_pos:
+                        r7 := -r7 // Only reverse numerator
+                        push r7 on stack r2
+                        push r5 on stack r2
+                        r1 := end_div // Set return address to end of function
+                        goto div_opp_sign
+        num_sub_zero: // Numerator is less than 0
+                r5 := -r5 // Reverse denominator
+                if (r7 <s 0) goto denom_sub_zero_neg
+                denom_over_zero_neg:
+                        push r7 on stack r2
+                        push r5 on stack r2
+                        r1 := end_div // Set return address to end of function
+                        goto div_opp_sign
+                denom_sub_zero_neg:
+                        r7 := -r7 // Reverse numerator
+                        push r7 on stack r2
+                        push r5 on stack r2
+                        r1 := end_div // Set return address to end of function
+                        goto div_same_sign
+        if (r7 == 0) r5 := 0 // Special case for numerator == 0
+        end_div:
+        .temps r6, r7
+        pop r5 off stack r2 // Hold onto result
+        pop r4 off stack r2 // Restore saved registers
+        pop r3 off stack r2 
+        push r5 on stack r2 // Push the result
+        goto waiting
+        
+div_zero_error:
+        output "Division by zero\n"
+        pop r4 off stack r2
+        pop r3 off stack r2
+        push r7 on stack r2
+        push r5 on stack r2 // Restore stack to pre-operator status
+        .temps r6, r7
+        goto waiting
+
+// Return address is stored in r1, and the numerator and denominator are on the
+// stack
+// Numerator below denominator
+div_same_sign:
+        .temps r6
+        pop r5 off stack r2 // denominator
+        pop r7 off stack r2 // numerator
+        r3 := r7 / r5
+        push r3 on stack r2
+        .temps r6, r7
+        goto r1
+        
+// Return address is stored in r1, and the numerator and denominator are on the
+// stack, they are stored as the positive version of the number
+// Numerator below denominator
+div_opp_sign:
+        .temps r6, r7
+        pop r5 off stack r2 // denominator
+        pop r7 off stack r2 // numerator
+        r5 := r7 / r5
+        r5 := -r5       // reverse the sign
+        push r5 on stack r2
+        goto r1
+        
+        
+///////////// bitwise or
+// Pops the top two elements of the stack off of the stack, performs bitwise OR
+// the first pushes the result
+// First checks number of arguments to confirm at least 2 operands on the stack
+// Leaves r3, r4 unchanged
+.section init
+m[r0][jumptable + '|'] := b_or
+.section text
+b_or:
+        goto confirm_2_operands linking r1
+        .temps r6
+        pop r5 off stack r2 // Argument 1
+        pop r7 off stack r2 // Argument 2
+        r5 := r7 | r5
+        push r5 on stack r2
+        .temps r6, r7
+        goto waiting
+
+///////////// bitwise and
+// Pops the top two elements of the stack off of the stack, performs bitwise AND
+// the first pushes the result
+// First checks number of arguments to confirm at least 2 operands on the stack
+// Leaves r3, r4 unchanged
+.section init
+m[r0][jumptable + '&'] := b_and
+.section text
+b_and:
+        goto confirm_2_operands linking r1
+        .temps r6
+        pop r5 off stack r2 // Argument 1
+        pop r7 off stack r2 // Argument 2
+        r5 := r7 & r5
+        push r5 on stack r2
+        .temps r6, r7
+        goto waiting
+
+
+///////////// change sign
+// Pops the top element of the stack off of the stack, changes sign and pushes
+// the result
+// First checks number of arguments to confirm at least 1 operand on the stack
+// Leaves r3, r4 unchanged
+.section init
+m[r0][jumptable + 'c'] := sign
+.section text
+sign:
+        goto confirm_1_operands linking r1
+        pop r5 off stack r2 // Argument 1
+        r5 := -r5
+        push r5 on stack r2
+        goto waiting
+
+
+///////////// bitwise complement
+// Pops the top element of the stack off of the stack, performs a bitwise
+// complement and pushes the result
+// First checks number of arguments to confirm at least 1 operand on the stack
+// Leaves r3, r4 unchanged
+.section init
+m[r0][jumptable + '~'] := comp
+.section text
+comp:
+        goto confirm_1_operands linking r1
+        pop r5 off stack r2 // Argument 1
+        r5 := ~r5
+        push r5 on stack r2
+        goto waiting
+
+///////////// swap 
+// Pops the top two elements of the stack off of the stack and pushes them
+// in the reverse order top is now second, second is now top
+// First checks number of arguments to confirm at least 2 operands on the stack
+// Leaves r3, r4 unchanged
+.section init
+m[r0][jumptable + 's'] := swap
+.section text
+swap:
+        goto confirm_2_operands linking r1
+        .temps r6 // Protect r7, don't allow assembler to have access
+        pop r5 off stack r2 // Argument 1
+        pop r7 off stack r2 // Argument 2
+        push r5 on stack r2
+        push r7 on stack r2
+        .temps r6, r7
+        goto waiting
+
+
+///////////// duplicate
+// Pops the top element of the stack off of the stack, pushes it onto the stack
+// twice, duplicating it on the stack
+// First checks number of arguments to confirm at least 1 operand on the stack
+// Leaves r3, r4 unchanged
+.section init
+m[r0][jumptable + 'd'] := dup
+.section text
+dup:
+        goto confirm_1_operands linking r1
+        pop r5 off stack r2 // Argument 1
+        push r5 on stack r2
+        push r5 on stack r2
+        goto waiting
+
+
+///////////// pop and discard
+// Pops the top element of the stack off of the stack and discards it
+// First checks number of arguments to confirm at least 1 operand on the stack
+// Leaves r3, r4 unchanged
+.section init
+m[r0][jumptable + 'p'] := discard
+.section text
+discard:
+        goto confirm_1_operands linking r1
+        pop r5 off stack r2 // Argument 1
+        goto waiting
+
+///////////// zero stack
+// Sets the stack pointer equal to the start of the stack
+// Leaves r3, r4 unchanged
+.section init
+m[r0][jumptable + 'z'] := zero
+.section text
+zero:
+        r2 := endstack // Argument 1
+        goto waiting
+        
+
+
+// Confirm 2 operands. Will output an error message if fewer than 2 numbers are 
+// currently on the stack. Otherwise it will return. Expects no arguments, and 
+// saves r3 and r4
+confirm_2_operands:
+        push r3 on stack r2 // Save r3
+        r3 := r2 + 3 // Add one for saved r3, add 2 for required 2 operands
+        if (r3 >s endstack) goto low_operand_error_2 using r5
+        pop r3 off stack r2
+        goto r1
+        low_operand_error_2: // Output error message and then go back to waiting
+        output "Stack underflow---expected at least 2 elements\n"
+        pop r3 off stack r2
+        goto waiting
+
+
+// Confirm 1 operands. Will output an error message if fewer than 1 number is 
+// currently on the stack. Otherwise it will return. Expects no arguments, and 
+// saves r3 and r4
+confirm_1_operands:
+        push r3 on stack r2 // Save r3
+        r3 := r2 + 2 // Add one for saved r3, add 2 for required 2 operands
+        if (r3 >s endstack) goto low_operand_error_1 using r5
+        pop r3 off stack r2
+        goto r1
+        low_operand_error_1: // Output error message and then go to waiting
+        output "Stack underflow---expected at least 1 element\n"
+        pop r3 off stack r2
+        goto waiting
+

@@ -1,0 +1,248 @@
+README for hw3
+
+by Jeanne-Marie Musca and Feiyu Lu
+
+Thanks for help from 3 TAs, piazza
+
+Time spent: about 30 hours
+
+a2plain.c: Correctly implemented both row and col mapping functions 
+           & small mapping functions.
+           
+uarray2b.c: Correctly implemented a 2d unboxed array that stores elements in
+            a 2d array of blocks, elements in same blocks are contiguous in 
+            memories.
+
+ppmtrans.c:  Correctly implemented: 90 and 180 rotation and all three forms 
+             of access (row-major,col-major and block-major).
+
+             Extra Credit: 270 rotation, flip horizontal & vertical, transpose
+
+------------------------------------
+==============
+ARCHITECTURE:
+==============
+FILES WE WROTE
+
+ppmtrans.c: tranform an input image, based on specfications
+                - access can be col, row or block major
+                - tranformations: rotate 0, 90, 180 or 270
+                                  flip horizontally or vertically
+
+uarray2b.c: implements the UArray2b interface
+
+a2plain.c:  provides a methods struct as described by the a2methods.h interface, 
+                has pointers to uarray2 functions.
+
+The compile script
+
+two executable binaries: a2test and ppmtrans
+-----------------------------------------------
+DETAILS
+
+A. ppmtrans.c 
+--------------------------------
+What is being represented:
+---------------
+        - image which will be transformed
+
+Representations used:
+---------------
+        - image stored as a valid pnm file
+        - A2Methods_UArray2 used to store image for processing
+
+Functions offered (and their contracts):
+---------------
+        - no interface functions offered, program must be run with valid input
+                and instructions for transformation and type of access to cells
+        - valid input: a pnm image
+        - valid instructions for transformation:
+                "-rotate 0", "-rotate 90", "-rotate 180", "-rotate 270"
+                        - rotate image according to specified angle
+                "-flip horizontal", "-flip vertical"
+                        - mirror image either horizontally (left-right) or
+                          vertically (top-bottom)
+                "-transpose"
+                        - mirror image across the diagonal (upper left to lower
+                          right)
+        - valid instructions for access to cells:
+                "-row-major"
+                     as pixels location in image is changed, the column indices
+                     increment faster than row indices
+                "-col-major"
+                     as pixels location in image is changed, the row indices
+                     increment faster than column indices
+                "-block-major"
+                     as pixels location in image is changed, visit all pixels
+                     in one block before moving on to the next block.
+   
+        - an image with the transformation applied will be output to stdout
+        - cre: image is not a correctly formatted pnm bitmap image, more
+               than one transformation
+
+B. a2plain.c 
+--------------------------------
+- Mediator between the a2methods.h polymorphic interface and uarray2.c.
+
+- In it, we define a new closure type a2fun closure, which holds the outer
+    apply function and its closure.
+    
+For both row and column major mapping: (X = col or row)
+- A new “inner” apply function is defined that can be passed to 
+  UArray2_map_X_major. This apply function grabs information from the
+  a2fun_closure, and it applies the “outer” apply function.
+
+- map_X_major is exported a pointer to, builds an a2fun closure,
+  and then calls UArray2_map_X_major using the new closure and the 
+  inner apply function
+
+Exports a A2Methods_T struct which has all the basic functions, as well as 
+row & col major mapping functions. Block-major mapping functions are NULL.
+
+
+C. uarray2b.c
+--------------------------------
+What is being represented:
+---------------
+We are representing a two dimensional array in which we can store objects.
+
+Functions offered (and their contracts):
+--------------
+UArray2b_T UArray2b_new_64K_block(int width, int height, int size)
+    - Creates empty blocked 2d array with given dimensions & size of object
+      types. Blocksize as large as possible but at most 64KB
+    - cre: passing negative row or col, or non-positive size
+
+UArray2b_T UArray2b_new(int width, int height, int size, int blocksize)
+  - Creates empty blocked 2d array with given dimensions, size of object
+    types & blocksize.
+  - cre: passing negative row, col or blocksize, or non-positive size
+    
+
+void UArray2b_free(UArray2b_T *uarray2b)
+    - frees the memory allocated in the heap by the UArray2b
+    - cre: passing NULL pointer or NULL array
+ 
+int UArray2b_width(UArray2b_T uarray2b)
+int UArray2b_height(UArray2b_T uarray2b)
+int UArray2b_size(UArray2b_T uarray2b)
+int UArray2b_blocksize(UArray2b_T uarray2b)
+    - returns the given property of uArray2b
+    - cre: passing NULL array         
+
+ void *UArray2b_at(UArray2b_T uarray2b, int col, int row)
+    - returns a pointer to the element at the specified coordinates
+    - cre: passing NULL array, and out of bounds col or row
+
+ void UArray2b_map(UArray2b_T uarray2b,
+    - iterates the function apply() over the elements of the array
+    - during iteration, mapping is done by blocks: visit all cells in one 
+            block before moving on to the next block.
+    - cre: passing NULL array
+
+Representations used:
+--------------
+- An UArray2b_T is represented as an UArray2_T, each element contains 1 block
+- A block is represented as a single UArray_T. This representation guarantees 
+    that cells in the same block are in nearby memory locations.
+
+- Uarray2b invariants:
+        At any point, content of index (col, row) of a UArray2b_T will be found
+        in the block at index (col / blocksize, row / blocksize), and in that
+        block, the content will be at index (blocksize * (col % blocksize) + 
+        col % blocksize).
+        
+        Array initiated with all 0's (or 0-equivalent, such as (null) for
+        chars). Therefore, arr[i] stores:
+            either: 0-equivalent (default value)
+            or:     object stored by client of type that is (at most) the size
+                    specified when calling UArray2_new (where i is calculated
+                    according to specified row and col)
+
+-------------------------------------
+========
+PART E:
+========
+                    row-major access | column-major access | blocked access
+90-degree rotation  |   4.41s        |  4.45s              |   5.28s    
+180-degree rotation |   3.81s        |  4.63s              |   5.19s
+ 
+
+We will discuss first the discrepency between the 90 and 180 degree rotation
+speeds. Then we will discuss the differences among the forms of access.
+
+A) 90 vs 180 degrees of rotation
+-------------------------------
+There are two actions that have an effect on the speed of the program:
+        1) Accessing pixels in the original image to retrieve information
+        2) Accessing pixels in the new image to store the new information
+
+Whether the rotation is 90 or 180 could have an effect on the second factor. 
+For both row and block major access, the 180 degree rotation was faster, than
+the 90 degree rotation.  In contrast, the col major access was slower. This 
+could be explained by the fact that in the 90 degree rotation, the rows and 
+columns are switched (new location for pixel is: (new_img_width-row-1, col)). 
+This means that if the original image was read in col-major, the new image is
+accessed in row-major, and vice versa. (for reasons discussed below, accessing
+the pixels in row-major order should be faster, because it has better spatial 
+locality).
+
+        In short: - for row-major & block-major access  
+                        90 degrees: - original image read in row-major
+                                    - new image is stored in col-major (roughly)
+                        180 degrees:-both original and new image read in 
+                                        row-major order
+                        
+                        Thus, 90 degrees slower than 180 degrees.
+                        
+                   - for col-major access: 
+                        90 degrees: - original image read in col-major
+                                    - new image read in row-major
+                        180 degrees:- both original & new image read in 
+                                        col-major order.
+                        
+                        Thus, 90 degrees faster than 180 degrees.
+                                        
+B) Methods of iterating through the pixels
+-------------------------------
+For both 90 and 180, block-major access is slower than the other two forms of 
+access. This can to some extent be explained by the fact that there are two
+separate implementations for the A2Methods: 
+    1) implementation called during col & row access
+    2) implementation called for block access
+
+The row and column-major access calls an implementation of a 2d array that is 
+in fact a 1d array. On the other hand, the block-major access uses an
+implementation that stores 1d Uarrays as blocks in a 2d UArray. This might add
+time, as each subarray is called. 
+
+Secondly, there are cells in some of the UArrays that are extra cells. 
+This is done so that each block is a square. These cells are
+never reached by the mapping function when called by the client, but for this to
+happen, there are additional calculations that need to be carried out. 
+On top of these extra calculations, there are two additional for-loops so that
+the mapping function can iterate through both blocks and cells within those
+blocks. 
+
+We would not have predicted that block-major would take longer than
+column access, given that the cells in the implementation for blocked access 
+are for the most part contiguous in memory (they have good spatial locality). 
+As discussed below, the column-major access has poor spatial locality.
+This means that the extra calculations must have a large impact on the 
+performance of this particular implementation.
+
+We see that column major access is slightly slower than row-major access. 
+Given that these two forms of access use the same implementation, the number of
+calculations are roughly the same. So, we think that these differences are due 
+to the organization of the cells in memory. The column major access has a 
+stride k reference pattern where k = width of image. This means that it has 
+relatively poor spatial locality. 
+
+The row-major access was the fastest, and we believe this due to the small 
+number of calculations (relative to block-major) and good spatial locality
+(relative to col-major).
+
+------------------------------------------
+note: We tested each of these rotations twice to get some idea of the consistency 
+of the time, and the times were all within 0.06s of each other. So, it seems 
+that the times are pretty consistent.

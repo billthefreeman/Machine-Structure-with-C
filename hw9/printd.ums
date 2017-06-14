@@ -1,0 +1,81 @@
+// COMP 40 HW 9
+// Spring 2015
+// Sam Vaughan and Feiyu Lu
+// UM RPN Calclulator
+// printd Module
+
+// This module allows the print function to be called and then will print the
+// number stored on the stack. It uses r5 to store the number
+
+.zero r0
+.temps r6, r7
+
+.section text
+// Prints the number off the stack. Argument to print_num is expected at offset
+// r2 on the stack, r1 holds our return register
+print_num:
+        output ">>> "
+        //pop r5 off stack r2 // Put arg1 in r5 
+        r5 := m[r0][r3] // Address in the stack for number to print
+        push r1 on stack r2 // Save return address
+        push r3 on stack r2 // Save r3, r4
+        push r4 on stack r2
+        push r5 on stack r2 // put arg1 on stack for sub function call
+        r1 := end_print
+        if (r5 == 0) goto print_zero using r4
+        r3 := 0x80000000
+        if (r5 == r3) goto print_most_neg using r4
+        if (r5 <s 0) goto print_neg using r4
+        if (r5 >s 0) goto print_pos using r4
+        end_print:
+        output '\n'
+        pop r4 off stack r2
+        pop r3 off stack r2
+        pop r1 off stack r2
+        goto r1
+        
+
+// Outputs the 0 digit and then returns to the address stored in r1
+print_zero:
+        output "0"
+        pop r5 off stack r2
+        goto r1
+
+// Ouputs the most negative uint32 and then returns to the address in r1
+print_most_neg:
+        output "-2147483648"
+        pop r5 off stack r2
+        goto r1
+
+// Outputs the number stored at the top of the stack, this number must be
+// // positive. Called from print_num
+print_pos:
+        .temps r3, r6, r7
+        pop r5 off stack r2 // arg1 is stored in r5
+        push r1 on stack r2 // Store the return address
+        push r5 on stack r2
+        if (r5 <s 10) goto print_digit
+        pop r5 off stack r2
+        r4 := r5 mod 10 // get low order digit
+        push r4 on stack r2
+        r5 := r5 / 10  // get high order digits, cut off 1's place
+        push r5 on stack r2
+        goto print_pos linking r1
+        print_digit:
+        pop r5 off stack r2 
+        output r5 + 48 // Convert to ascii
+        pop r1 off stack r2
+        .temps r6, r7
+        goto r1
+
+// Outputs the '-' character followed by the (-1) * the number stored in r5
+print_neg:
+        pop r5 off stack r2 // get the number to print
+        output "-" 
+        r5 := - r5
+        push r5 on stack r2
+        goto print_pos // Return from print_pos straight to print_neg, no need
+                       // to return here 
+
+
+

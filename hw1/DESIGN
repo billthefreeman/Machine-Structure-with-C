@@ -1,0 +1,56 @@
+Design Document: Fingerprint Groups
+By Ben Tanen and Feiyu Lu
+
+Hanson Table: We will use a table to hold the fingerprint groups. They will be
+arranged in key-value pairs, where the key will be the fingerprint sequence (see
+Hanson Atoms below for more) and the value will be the set / container that
+holds all of the group members (see below). Because of the design of the table, 
+it is efficient to manage (add, remove, view) key-value pairs, which will be 
+helpful for the management of our fingerprint groups.
+        In our table, our void *pointers will point to either Atom keys (in the
+interface, these are denoted as 'key') or the Sets that will contain our group
+members (in the interface, these are denoted as 'value').
+
+Hanson Atoms: Atoms will be used as the keys for our table. Each atom will be
+associated with a fingerprint sequence (string) that will be associated with
+each fingerprint group. Because of the design of Hanson Atoms, there will only
+be one instance of each fingerprint sequence to assure that members of a single
+fingerprint group are not separated or repeated unnecessarily.
+        In our atoms, the pointers will always be pointing to and be associated
+with character strings. These strings are used as the keys of our table and they
+are the group names received from input.
+
+Hanson Sets: Sets will be used to hold all of the members of our fingerprint
+groups. Sets are structures that do not care about order or duplicates. Because
+of this, it is a good way to hold members since their order is not important.
+Sets are also being used because it is easy to check if a particular name is
+already a member of a set using Set_member(), which is already built into the
+structure.
+        In our sets, the void *pointers will point to character strings. Our
+sets will hold the names associated with the fingerprint groups, which are
+stored as string. Therefore, the members (as the void pointers are denoted) will
+be these strings. Thus the void *pointer(s) member will point to character array
+strings (char[])
+
+Using these three data structures, we will have a table that holds all of the
+members. In the table, the key will be the Atom associated with a particular
+fingerprint sequence and the value will be a set that holds all of that group's
+members.
+Additionally, we will have a completely separate set that will hold all
+of the input names. When a new line is read-in, the name will be checked against
+the set (using Set_member()) and if the name does not already exist, it will be
+added to both the large set and the associated set within the table. If the name
+already exists in table/name set, an error will be thrown.
+
+Throughout the entire process of reading in input lines, the invariant that will
+hold is that a single name will occur no more than one time. Since names cannot
+be repeated, regardless of their fingerprint group, it is a known fact that at
+any point during the reading of lines that a name will occur in the Hanson table
+or large nameSet no more than once.
+
+Based on the described data structures above, once all the lines have been read
+in, we can use the Table_map and Set_map functions to output the fingerprint
+groups in the appropriate manner. Because Table_map and Set_map both use the
+first-class function apply(), we can create functions (perhaps named
+printSetMember() and printTableSet()) that will print all of the names for a
+particular fgroup.
